@@ -1,6 +1,7 @@
 ---
 environments:
   default:
+  production:
 ---
 repositories:
   - name: prometheus-community
