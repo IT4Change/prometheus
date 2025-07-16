@@ -1,7 +1,15 @@
 ---
 environments:
   default:
+    values:
+      - ./environments/default.yaml.gotmpl
+    secrets:
+      - ./environments/default.secrets.yaml
   production:
+    values:
+      - ./environments/production.yaml.gotmpl
+    secrets:
+      - ./environments/production.secrets.yaml
 ---
 repositories:
   - name: prometheus-community
@@ -12,4 +20,4 @@ releases:
     namespace: monitoring
     chart: prometheus-community/kube-prometheus-stack
     values:
-    - ./values/values.yaml
+    - ./values/prometheus.yaml.gotmpl

@@ -1,0 +1,62 @@
+grafana:
+  adminPassword: {{ .StateValues.grafana.ADMIN_PASSWORD }}
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 1m
+    route:
+      receiver: 'discord'
+      group_by: ['alertname', 'cluster', 'job', 'env']
+      group_wait: 15s
+      group_interval: 15s
+      repeat_interval: 1m
+      routes:
+      - match: #  port not exposed?
+          alertname: KubeProxyDown
+        receiver: "null"
+      - match: # port not exposed?
+          alertname: KubeSchedulerDown
+        receiver: "null"
+      - match: # port not exposed?
+          alertname: KubeControllerManagerDown
+        receiver: "null"
+      - match: # dummy alert
+          alertname: Watchdog
+        receiver: "null"
+      # # discord has delivery problems sometimes (amount of messages)
+      # # better mute it temporarily via silence in graphana.
+      #- match:
+      #    alertname: AlertmanagerFailedToSendAlerts
+      #  receiver: "null"
+    receivers:
+      - name: 'null'
+      - name: 'discord'
+        discord_configs:
+          - webhook_url: {{ .StateValues.discord.WEBHOOK_URL }}
+            username: {{ .StateValues.discord.USERNAME }}
+
+additionalPrometheusRulesMap:
+  high-cpu-usage:
+    groups:
+      - name: Node
+        rules:
+          - alert: HighCPUUsage
+            expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 10s
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage detected"
+              description: 'CPU usage is above 80% on {{ "{{" }} $labels.instance {{ "}}" }}'
+  node-not-ready:
+    groups:
+      - name: Node
+        rules:
+          - alert: NodeNotReady
+            expr: sum(kube_node_status_condition{condition="Ready",status!="true"}) > 0 
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node not ready"
+              description: 'Node {{ "{{" }} $labels.instance {{ "}}" }} is not ready'
