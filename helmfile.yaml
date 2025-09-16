@@ -19,5 +19,6 @@ releases:
   - name: prometheus
     namespace: monitoring
     chart: prometheus-community/kube-prometheus-stack
+    disableValidation: true # Missing CRDs on first deploy
     values:
     - ./values/prometheus.yaml.gotmpl
