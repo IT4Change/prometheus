@@ -12,15 +12,15 @@ alertmanager:
       group_interval: 15s
       repeat_interval: 1m
       routes:
-      - match: #  port not exposed?
-          alertname: KubeProxyDown
-        receiver: "null"
-      - match: # port not exposed?
-          alertname: KubeSchedulerDown
-        receiver: "null"
-      - match: # port not exposed?
-          alertname: KubeControllerManagerDown
-        receiver: "null"
+      #- match: #  port not exposed?
+      #    alertname: KubeProxyDown
+      #  receiver: "null"
+      #- match: # port not exposed?
+      #    alertname: KubeSchedulerDown
+      #  receiver: "null"
+      #- match: # port not exposed?
+      #    alertname: KubeControllerManagerDown
+      #  receiver: "null"
       - match: # dummy alert
           alertname: Watchdog
         receiver: "null"
