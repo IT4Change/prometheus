@@ -1,3 +1,19 @@
+# kube-prometheus-stack values -- Drop-in-Vorlage.
+# Quelle: in der Concept-Repo-Wurzel zur Referenz; gepflegt wird die Datei
+# eigentlich im Cluster-Infrastructure-Repo (kube-it4c.dev-*) als helmfile-
+# values fuer den kube-prometheus-stack-Release.
+#
+# Aenderungen gegenueber der frueheren Variante:
+#   - repeat_interval: 1m -> 5m  (Hauptursache der Spam-Flut)
+#   - group_interval: 15s -> 1m  (kuerzeren Update-Storm vermeiden)
+#   - InfoInhibitor + severity:none zur null-Receiver geroutet
+#   - Discord receiver mit kompakten title/message Templates statt
+#     Default-Template (200 Zeilen Label-Wand)
+#
+# Helm-Raw-String-Trick: alle alertmanager-go-templates sind in
+# `{{ ` ... ` }}` Backticks gewrapped, damit Helm sie wortwoertlich
+# durchreicht und nur alertmanager sie evaluiert.
+
 grafana:
   adminPassword: {{ .StateValues.grafana.ADMIN_PASSWORD }}
 
@@ -7,34 +23,44 @@ alertmanager:
       resolve_timeout: 1m
     route:
       receiver: 'discord'
-      group_by: ['alertname', 'cluster', 'job', 'env']
+      group_by: ['alertname', 'cluster', 'namespace']
       group_wait: 15s
-      group_interval: 15s
-      repeat_interval: 1m
+      group_interval: 1m
+      repeat_interval: 5m
       routes:
-      - match: #  port not exposed?
-          alertname: KubeProxyDown
-        receiver: "null"
-      - match: # port not exposed?
-          alertname: KubeSchedulerDown
-        receiver: "null"
-      - match: # port not exposed?
-          alertname: KubeControllerManagerDown
-        receiver: "null"
-      - match: # dummy alert
-          alertname: Watchdog
-        receiver: "null"
-      # # discord has delivery problems sometimes (amount of messages)
-      # # better mute it temporarily via silence in grafana.
-      #- match:
-      #    alertname: AlertmanagerFailedToSendAlerts
-      #  receiver: "null"
+        - match: { alertname: KubeProxyDown }              #  port not exposed?
+          receiver: "null"
+        - match: { alertname: KubeSchedulerDown }          # port not exposed?
+          receiver: "null"
+        - match: { alertname: KubeControllerManagerDown }  # port not exposed?
+          receiver: "null"
+        - match: { alertname: Watchdog }                   # dummy alert
+          receiver: "null"
+        - match: { alertname: InfoInhibitor }              # meta-alert, nicht fuer Menschen
+          receiver: "null"
+        - match: { severity: none }                        # informational noise
+          receiver: "null"
+        # # discord has delivery problems sometimes (amount of messages)
+        # # better mute it temporarily via silence in grafana.
+        #- match:
+        #    alertname: AlertmanagerFailedToSendAlerts
+        #  receiver: "null"
     receivers:
       - name: 'null'
       - name: 'discord'
         discord_configs:
           - webhook_url: {{ .StateValues.discord.WEBHOOK_URL }}
             username: {{ .StateValues.discord.USERNAME }}
+            send_resolved: true
+            title: '{{ `{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔥{{ else if eq .CommonLabels.severity "warning" }}⚠️{{ else }}ℹ️{{ end }} [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}{{ else }}✅ Resolved: {{ .CommonLabels.alertname }}{{ end }}` }}'
+            message: |-
+              {{ `{{ range .Alerts -}}
+              **{{ .Annotations.summary }}**
+              {{ if .Annotations.description }}{{ .Annotations.description }}
+              {{ end }}{{ if .Labels.namespace }}**NS:** {{ .Labels.namespace }}{{ end }}{{ if .Labels.pod }}  **Pod:** {{ .Labels.pod }}{{ end }}{{ if .Labels.container }}  **Container:** {{ .Labels.container }}{{ end }}
+              {{ if .Annotations.runbook_url }}[Runbook]({{ .Annotations.runbook_url }}){{ end }}
+              ━━━━━━━━━━━━━━━
+              {{ end -}}` }}
 
 additionalPrometheusRulesMap:
   high-cpu-usage:
@@ -54,7 +80,7 @@ additionalPrometheusRulesMap:
       - name: Node
         rules:
           - alert: NodeNotReady
-            expr: sum(kube_node_status_condition{condition="Ready",status!="true"}) > 0 
+            expr: sum(kube_node_status_condition{condition="Ready",status!="true"}) > 0
             labels:
               severity: critical
             annotations:
