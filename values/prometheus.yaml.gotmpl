@@ -41,10 +41,10 @@ alertmanager:
         - match: { severity: none }                        # informational noise
           receiver: "null"
         # Meet Ignores
-        - match: { namespace: livekit-staging }
-          receiver: "null"
-        - match: { namespace: livekit }
-          receiver: "null"
+        #- match: { namespace: livekit-staging }
+        #  receiver: "null"
+        #- match: { namespace: livekit }
+        #  receiver: "null"
         # # discord has delivery problems sometimes (amount of messages)
         # # better mute it temporarily via silence in grafana.
         #- match:
